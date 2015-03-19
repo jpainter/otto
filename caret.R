@@ -12,34 +12,39 @@ test_data <- as.data.frame(fread("test.csv"))[,-1]
 ## training data ####
 train_data$target = factor(train_data$target) # needs to be factor
 
-# inTrain <- createDataPartition(y = train_data$target,
-#                                  ## the outcome data are needed
-#                                 p = .75,
-#                                 ## The percentage of data in the
-#                                 ## training set
-#                                 list = FALSE)
-# str(inTrain)
-# training <- train_data[ inTrain,]
-# testing <- test_data[-inTrain,]  # this is differenct from test dat for submisison
-
-# limit to 1000
-set.seed(0)
-k = sample(1:nrow(train_data), 1000)
-training_1k = train_data[k,]
-
 y = which(colnames(train_data) %in% "target")
 
+inTrain <- createDataPartition(y = train_data[,y],
+                                 ## the outcome data are needed
+                                p = .3,
+                                ## The percentage of data in the
+                                ## training set
+                                list = FALSE)
+str(inTrain)
+training <- train_data[ inTrain,]
+testing <- test_data[-inTrain,]  # this is differenct from test dat for submisison
+
+
 ## rf model ####
-
 cvCtrl = trainControl(method = "repeatedcv", repeats = 5, classProbs = TRUE)
+bootCtrl = trainControl(method = "boot", classProbs = TRUE)
 
-### no preprosseseing
-rf_model<-train( training_1k[, -y], training_1k[, y], 
+run = now()
+model_label = paste0("caret_", month(run), day(run), hour(run))
+
+rfGrid <-  expand.grid(mtry = c(5,9,18))
+
+rf_model<-train( training[, -y], training[, y], 
                  method="rf",
-                 trControl = cvCtrl,
-                 allowParallel=TRUE, tuneLength = 3)
+                 trControl = bootCtrl,
+                 allowParallel=TRUE, 
+                 tuneGrid = rfGrid)
 print(rf_model)
 print(rf_model$finalModel)
+
+submit = as.data.frame(fread("sampleSubmission.csv"))
+submit[, 2:10] <- predict(rf_model, newdata=test_data, type='prob')
+write.csv(submit, paste0( model_label, '.csv'), quote=FALSE, row.names = FALSE)
 
 
 # pls train model ####
