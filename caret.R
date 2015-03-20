@@ -1,22 +1,25 @@
 # caret
 
-install.packages("caret", dependencies = c("Depends", "Suggests"))
+# install.packages("caret", dependencies = c("Depends", "Suggests"))
 
 library(caret)
+library(lubridate)
 library("data.table") 
+library(doMC)
+registerDoMC(cores = 4)
 
-## primary data
+## primary data ####
 train_data = as.data.frame(fread("train.csv"))[,-1]
 test_data <- as.data.frame(fread("test.csv"))[,-1]
 
-## training data ####
 train_data$target = factor(train_data$target) # needs to be factor
 
 y = which(colnames(train_data) %in% "target")
 
+## training data ####
 inTrain <- createDataPartition(y = train_data[,y],
                                  ## the outcome data are needed
-                                p = .3,
+                                p = .5,
                                 ## The percentage of data in the
                                 ## training set
                                 list = FALSE)
@@ -24,6 +27,8 @@ str(inTrain)
 training <- train_data[ inTrain,]
 testing <- test_data[-inTrain,]  # this is differenct from test dat for submisison
 
+# complete dataset
+# training = train_data
 
 ## rf model ####
 cvCtrl = trainControl(method = "repeatedcv", repeats = 5, classProbs = TRUE)
@@ -36,9 +41,10 @@ rfGrid <-  expand.grid(mtry = c(5,9,18))
 
 rf_model<-train( training[, -y], training[, y], 
                  method="rf",
-                 trControl = bootCtrl,
+                 trControl = cvCtrl,
                  allowParallel=TRUE, 
                  tuneGrid = rfGrid)
+save(rf_model, file = "rf_model.rda")
 print(rf_model)
 print(rf_model$finalModel)
 
